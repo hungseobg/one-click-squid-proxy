@@ -10,16 +10,15 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Kiểm tra kết nối internet
-if ! ping -c 1 google.com &> /dev/null; then
-    echo "Lỗi: Không có kết nối internet. Vui lòng kiểm tra mạng và thử lại."
-    exit 1
-fi
+# Thử sửa DNS nếu cần
+echo "Đang kiểm tra và cấu hình DNS..."
+echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
+echo "nameserver 8.8.4.4" | sudo tee -a /etc/resolv.conf
 
 # Cập nhật hệ thống và cài đặt gói cần thiết
 echo "Đang cập nhật hệ thống và cài đặt Squid, apache2-utils..."
-apt-get update -y
-apt-get install -y squid apache2-utils
+apt-get update -y || { echo "Lỗi: Không thể cập nhật gói. Kiểm tra kết nối mạng."; exit 1; }
+apt-get install -y squid apache2-utils || { echo "Lỗi: Không thể cài đặt gói. Kiểm tra kết nối mạng."; exit 1; }
 
 # Kiểm tra cài đặt Squid
 if ! command -v squid &> /dev/null; then
@@ -56,7 +55,7 @@ systemctl enable squid
 
 # Kiểm tra trạng thái Squid và hiển thị thông tin proxy
 if systemctl is-active --quiet squid; then
-    IP=$(curl -s ifconfig.me)
+    IP=$(curl -s ifconfig.me || echo "Không lấy được IP. Kiểm tra thủ công bằng 'ip addr'.")
     echo "====================================="
     echo "Proxy HTTPS đã được cài đặt thành công!"
     echo "Thông tin proxy:"
